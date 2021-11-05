@@ -1,8 +1,11 @@
-use log::{info, error, debug, log};
+use log::{error};
 use serde_derive::Deserialize;
 use notify::{RecommendedWatcher, Watcher, RecursiveMode};
 use std::sync::mpsc::channel;
 use std::time::Duration;
+use std::{env, fs};
+
+const CONFIG_FILE: &'static str = "scanwatch.toml";
 
 #[derive(Deserialize)]
 struct Config {
@@ -29,13 +32,14 @@ fn watch(config: &Config) -> notify::Result<()> {
 
 fn main() {
     env_logger::init();
+
+    let config_string = fs::read_to_string(CONFIG_FILE)
+        .expect(&format!("cannot find configuration file {filename}",
+                filename=CONFIG_FILE));
     
-    let config: Config = toml::from_str(r#"
-        path = './test'
-"#).unwrap();
+    let config: Config = toml::from_str(&config_string).unwrap();
 
     println!("Watching path {path}", path=config.path);
-    info!("Watching path {path}", path=config.path);
 
     if let Err(e) = watch(&config) {
         error!("error: {:?}", e);
