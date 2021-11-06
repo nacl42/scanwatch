@@ -6,7 +6,6 @@ use std::time::Duration;
 use std::{env, fs};
 use std::io::{self, Write};
 use std::process::Command;
-use tinytemplate::TinyTemplate;
 
 const CONFIG_FILE: &'static str = "scanwatch.toml";
 
@@ -26,17 +25,16 @@ fn watch(config: &Config) -> notify::Result<()> {
 
     loop {
         match rx.recv() {
-            Ok(DebouncedEvent::Write(pathbuf)) | Ok(DebouncedEvent::Create(pathbuf))|Ok(DebouncedEvent::NoticeWrite(pathbuf)) => {
+            Ok(DebouncedEvent::Write(pathbuf)) |
+            Ok(DebouncedEvent::Create(pathbuf))|
+            Ok(DebouncedEvent::NoticeWrite(pathbuf)) => {
                 println!("» printing document '{}' to printer '{}'", pathbuf.to_string_lossy(), config.printer);
-                let output =
-                    Command::new("echo")
-                    .arg(format!("-P {} {}",
-                                 config.printer,
-                                 pathbuf.to_string_lossy()))
-                    .output()
+                let _child =
+                    Command::new("lpr")
+                    .args([format!("-P{}", config.printer),
+                           format!("{}", pathbuf.to_string_lossy())])
+                    .spawn()
                     .expect("failed to execute process");
-
-                io::stdout().write_all(&output.stdout).unwrap();
             }
             Ok(event) => println!("unspecified event: {:?}", event),
             Err(e) => error!("watch error: {:?}", e),
