@@ -1,17 +1,19 @@
 use log::{error};
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 use std::sync::mpsc::channel;
 use std::time::Duration;
 use std::{env, fs};
 use std::io::{self, Write};
 use std::process::Command;
+use tinytemplate::TinyTemplate;
 
 const CONFIG_FILE: &'static str = "scanwatch.toml";
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct Config {
-    path: String
+    path: String,
+    printer: String,
 }
 
 fn watch(config: &Config) -> notify::Result<()> {
@@ -24,18 +26,19 @@ fn watch(config: &Config) -> notify::Result<()> {
 
     loop {
         match rx.recv() {
-            Ok(DebouncedEvent::Write(pathbuf)) => {
-                println!("Write to {}", pathbuf.to_string_lossy());
+            Ok(DebouncedEvent::Write(pathbuf)) | Ok(DebouncedEvent::Create(pathbuf))|Ok(DebouncedEvent::NoticeWrite(pathbuf)) => {
+                println!("» printing document '{}' to printer '{}'", pathbuf.to_string_lossy(), config.printer);
                 let output =
-                    Command::new("ls")
-                    //.arg("ls")
+                    Command::new("echo")
+                    .arg(format!("-P {} {}",
+                                 config.printer,
+                                 pathbuf.to_string_lossy()))
                     .output()
                     .expect("failed to execute process");
 
                 io::stdout().write_all(&output.stdout).unwrap();
-                println!("---");
             }
-            Ok(event) => println!("{:?}", event),
+            Ok(event) => println!("unspecified event: {:?}", event),
             Err(e) => error!("watch error: {:?}", e),
         }
     }

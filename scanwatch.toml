@@ -1,2 +1,4 @@
 # test configuration for scanwatch
-path = "./test"
+path = "/home/example/scanwatch"
+printer = "kyo_einseitig"
+
