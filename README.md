@@ -17,21 +17,19 @@ within to a printing frontend
 
 ## example configurations
 
-'''
-[rules.xpdf]
-path = "test"
-cmd = "xpdf"
-args = ["{filename}"]
-msg = "opening '{filename:short}' with xpdf"
-x = ""
+    [rules.xpdf]
+    path = "test"
+    cmd = "xpdf"
+    args = ["{filename}"]
+    msg = "opening '{filename:short}' with xpdf"
+    x = ""
 
-[rules.lpr]
-path = "test-lpr"
-cmd = "lpr"
-args = ["-P{x}", "{filename}"]
-msg = "sending '{filename}' to printer '{x}'"
-x = "kyo_einseitig"
-'''
+    [rules.lpr]
+    path = "test-lpr"
+    cmd = "lpr"
+    args = ["-P{x}", "{filename}"]
+    msg = "sending '{filename}' to printer '{x}'"
+    x = "kyo_einseitig"
 
 ## disclaimer
 
