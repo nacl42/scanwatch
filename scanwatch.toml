@@ -3,15 +3,15 @@
 
 #filter = "*.pdf"
 
-[rule.xpdf]
-path = "./test"
+[rules.xpdf]
+path = "test"
 cmd = "xpdf"
 args = ["{filename}"]
-msg = "opening '{filename}' with xpdf"
+msg = "opening '{filename:short}' with xpdf"
 x = ""
 
-[rule.lpr]
-path = "./test"
+[rules.lpr]
+path = "test-lpr"
 cmd = "echo"
 #cmd = "lpr"  # disabled, so that during testing we do not print all the time
 args = ["-P{x}", "{filename}"]

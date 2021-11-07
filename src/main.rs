@@ -3,32 +3,33 @@
 
 // TODO:
 // - read configuration from xdg-compatible directory
-// - allow multiple directories by specifying multiple config sections
-//   [path]
+// - handle more than create events, which is tricky, because we need
+//   to keep track of the former events and decide what to do
+// - how often does inotify poll? Is there any way to change poll time?
+//   Is there any _need_ to do it?
+
 
 // if you want to see debug output during testing, run via
 // RUST_LOG=debug cargo run
 
-use log::{error, debug};
+
+use log::{debug, info};
 use serde_derive::{Deserialize, Serialize};
 
-use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
-
+use inotify::{Inotify, WatchMask, WatchDescriptor, EventMask};
 use notify_rust::Notification;
 
-use std::sync::mpsc::channel;
-use std::time::Duration;
 use std::{env, fs};
-use std::io::{self, Write};
 use std::process::Command;
 use std::collections::HashMap;
 
+
 const CONFIG_FILE: &'static str = "scanwatch.toml";
 
-fn notify(message: &'_ str) {
+fn display_notification(message: &'_ str) {
     // if below notification fails, then this is not at all fatal, as
     // we print out the message on the command line
-    println!("{}", message);
+    println!("»»» {}", message);
 
     Notification::new()
         .summary("scanwatch")
@@ -38,10 +39,11 @@ fn notify(message: &'_ str) {
         .unwrap();
 }
 
+type RuleMap = HashMap<String, Rule>;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Config {
-    rule: HashMap<String, Rule>
+    rules: RuleMap
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -51,65 +53,7 @@ struct Rule {
     cmd: String,
     msg: String,
     x: String,
-}
-
-
-fn watch(rule: &Rule) -> notify::Result<()> {
-
-    notify(&format!("Watching path {path} for incoming documents (pdf only)",
-                    path=rule.path));
-
-    let (tx, rx) = channel();
-
-    let mut watcher: RecommendedWatcher =
-        Watcher::new(tx, Duration::from_secs(2))?;
-
-    watcher.watch(&rule.path, RecursiveMode::Recursive)?;
-
-    loop {
-        match rx.recv() {
-            Ok(DebouncedEvent::Write(pathbuf)) |
-            Ok(DebouncedEvent::Create(pathbuf)) => {
-                // TODO: could be easily written using the nightly-feature `contains`
-                // let is_pdf = pathbuf.as_path().extension().contains("pdf");
-                match pathbuf.as_path().extension() {
-                    Some(ext) if ext == "pdf" => {
-
-                        let filename = pathbuf.to_string_lossy();
-                        let filename_short = pathbuf.as_path().file_name().unwrap().to_string_lossy();
-
-                        let replace_vars = |txt: &'_ str| {
-                            txt.replace("{filename}", &filename)
-                                .replace("{filename:short}", &filename_short)
-                                .replace("{x}", &rule.x)
-                        };
-                        
-                        let msg = replace_vars(&rule.msg);
-                        let args = rule.args.iter().map(|arg| replace_vars(arg)).collect::<Vec<String>>();
-                        
-                        println!("msg => {}", msg);
-                        for arg in &args {
-                            println!("  arg => {}", arg);
-                        }
-
-                        // TODO: unwrap() may be difficult here, because the user's template might fail
-                        notify(&msg);
-                        
-                        let _child =
-                            Command::new(&rule.cmd)
-                            .args(args)
-                            .spawn()
-                            .expect("failed to execute process");
-                    }
-                    _ => { println!("skipped, because it is not a pdf file")}
-                };
-            }
-            Ok(event) => println!("unspecified event: {:?}", event),
-            Err(e) => error!("watch error: {:?}", e),
-        }
-    }
-    
-}
+}    
 
 
 fn main() {
@@ -121,14 +65,101 @@ fn main() {
     
     let config: Config = toml::from_str(&config_string).unwrap();
 
-    for (key, rule) in config.rule.iter() {
+    for (key, _rule) in config.rules.iter() {
         debug!("recognized rule: {}", key);
     }
     
-    // use first rule and skip the others (for the moment)
-    if let Some((key, rule)) = config.rule.iter().next() {
-        if let Err(e) = watch(&rule) {
-            error!("error: {:?}", e);
+    watch_all(&config.rules);
+}
+
+fn watch_all(rules: &RuleMap) {
+    let mut inotify = Inotify::init()
+        .expect("Error while initializing inotify instance");
+
+    // The wdmap is used to identify the rule from the WatchDescriptor
+    // that is returned by the Event.
+    let mut wdmap: HashMap<WatchDescriptor, String> = HashMap::new();
+
+    // For now, we only watch CREATE events. If we were watching
+    // others, we would need to make sure, that we do not trigger
+    // events twice, e.g. a file creation will trigger both CREATE and
+    // CLOSE_WRITE events.
+    let mask = WatchMask::CREATE;
+    
+    for (key, rule) in rules.iter() {
+        match inotify.add_watch(rule.path.clone(), mask) {
+            Ok(wd) => {
+                debug!("successfully added watch for rule {}", key);
+                wdmap.insert(wd, key.to_string());
+            }
+            Err(err) => {
+                debug!("failed to add watch for rule {}. Error is: {}", key, err.to_string());
+            }
+        }
+    }
+
+    // read events
+    let mut buffer = [0; 4096]; // TODO: this number is a black box... is it enough?
+
+    display_notification("Happy Watch!");
+    
+    loop {
+        let events = inotify.read_events_blocking(&mut buffer)
+            .expect("Error while reading events");
+
+        for event in events {
+            if let Some(key) = wdmap.get(&event.wd) {
+                let msg = format!("triggered rule '{}'", key);
+                let filename_short = event.name.unwrap().to_string_lossy();
+                let is_pdf = filename_short.ends_with(".pdf");
+                let is_file = !event.mask.contains(EventMask::ISDIR);
+                let matches_event = event.mask.contains(EventMask::CREATE);
+                let rule = rules.get(key).unwrap();
+
+                // this tries to determine the absolute file name
+                // it is definitely a mess, and I might be better off using
+                // a crate such as path-absolutize. But for now, I will try
+                // to stick with this simple implementation.
+                let mut filename = env::current_dir().unwrap();
+                filename.push(rule.path.clone());
+                filename.push(event.name.unwrap());
+                let filename = filename.to_str().unwrap();
+                
+                debug!("triggered event for rule {}", key);
+                debug!("msg = {}", msg);
+                debug!("filename = {}", filename);
+                debug!("is_pdf = {}", is_pdf);
+                debug!("is_file = {}", is_file);
+                debug!("root path = {}", rule.path);
+                
+                if matches_event && is_file && is_pdf {
+                    info!("triggered rule {}. File: {}", key, filename);
+
+                    let replace_vars = |txt: &'_ str| {
+                        txt.replace("{filename}", &filename)
+                            .replace("{filename:short}", &filename_short)
+                            .replace("{x}", &rule.x)
+                    };
+                        
+                    let msg = replace_vars(&rule.msg);
+                    let args = rule.args.iter().map(|arg| replace_vars(arg)).collect::<Vec<String>>();
+
+                    debug!("msg = {}", msg);
+                    for arg in &args {
+                        debug!("arg = {}", arg);
+                    }
+
+                    // TODO: unwrap() may be difficult here, because
+                    // the user's template might fail
+                    display_notification(&msg);
+                        
+                    let _child =
+                        Command::new(&rule.cmd)
+                        .args(args)
+                        .spawn()
+                        .expect("failed to execute process");
+                }
+            }
         }
     }
 }
