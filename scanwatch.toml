@@ -1,17 +1,19 @@
-# test configuration for scanwatch
+# sample configuration file for `scanwatch`
+# for details on the .toml file format, see https://toml.io/
 
 #filter = "*.pdf"
 
-[[rules]]
+[rule.xpdf]
 path = "./test"
 cmd = "xpdf"
 args = ["{filename}"]
 msg = "opening '{filename}' with xpdf"
 x = ""
 
-[[rules]]
+[rule.lpr]
 path = "./test"
-cmd = "lpr"
+cmd = "echo"
+#cmd = "lpr"  # disabled, so that during testing we do not print all the time
 args = ["-P{x}", "{filename}"]
 msg = "sending '{filename}' to printer '{x}'"
 x = "kyo_einseitig"

@@ -6,7 +6,10 @@
 // - allow multiple directories by specifying multiple config sections
 //   [path]
 
-use log::{error};
+// if you want to see debug output during testing, run via
+// RUST_LOG=debug cargo run
+
+use log::{error, debug};
 use serde_derive::{Deserialize, Serialize};
 
 use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
@@ -18,7 +21,7 @@ use std::time::Duration;
 use std::{env, fs};
 use std::io::{self, Write};
 use std::process::Command;
-
+use std::collections::HashMap;
 
 const CONFIG_FILE: &'static str = "scanwatch.toml";
 
@@ -38,7 +41,7 @@ fn notify(message: &'_ str) {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Config {
-    rules: Option<Vec<Rule>>
+    rule: HashMap<String, Rule>
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -117,9 +120,13 @@ fn main() {
                 filename=CONFIG_FILE));
     
     let config: Config = toml::from_str(&config_string).unwrap();
-    println!("config: {:#?}", config);
+
+    for (key, rule) in config.rule.iter() {
+        debug!("recognized rule: {}", key);
+    }
     
-    if let Some(rule) = config.rules.unwrap().iter().next() {
+    // use first rule and skip the others (for the moment)
+    if let Some((key, rule)) = config.rule.iter().next() {
         if let Err(e) = watch(&rule) {
             error!("error: {:?}", e);
         }
