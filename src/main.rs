@@ -2,9 +2,9 @@
 ///! or overwritten files and sends the file to a printer
 
 // TODO:
-// - only send pdf files
 // - read configuration from xdg-compatible directory
-// -
+// - allow multiple directories by specifying multiple config sections
+//   [path]
 
 use log::{error};
 use serde_derive::{Deserialize, Serialize};
@@ -18,6 +18,7 @@ use std::time::Duration;
 use std::{env, fs};
 use std::io::{self, Write};
 use std::process::Command;
+
 
 const CONFIG_FILE: &'static str = "scanwatch.toml";
 
@@ -35,19 +36,32 @@ fn notify(message: &'_ str) {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Config {
-    path: String,
-    printer: String,
+    rules: Option<Vec<Rule>>
 }
 
-fn watch(config: &Config) -> notify::Result<()> {
+#[derive(Serialize, Deserialize, Debug)]
+struct Rule {
+    path: String,
+    args: Vec<String>,
+    cmd: String,
+    msg: String,
+    x: String,
+}
+
+
+fn watch(rule: &Rule) -> notify::Result<()> {
+
+    notify(&format!("Watching path {path} for incoming documents (pdf only)",
+                    path=rule.path));
+
     let (tx, rx) = channel();
 
     let mut watcher: RecommendedWatcher =
         Watcher::new(tx, Duration::from_secs(2))?;
 
-    watcher.watch(&config.path, RecursiveMode::Recursive)?;
+    watcher.watch(&rule.path, RecursiveMode::Recursive)?;
 
     loop {
         match rx.recv() {
@@ -57,13 +71,30 @@ fn watch(config: &Config) -> notify::Result<()> {
                 // let is_pdf = pathbuf.as_path().extension().contains("pdf");
                 match pathbuf.as_path().extension() {
                     Some(ext) if ext == "pdf" => {
-                        let short_name = pathbuf.as_path().file_name().unwrap().to_string_lossy();
-                        notify(&format!("sending document '{}' to printer '{}'", short_name, config.printer));
+
+                        let filename = pathbuf.to_string_lossy();
+                        let filename_short = pathbuf.as_path().file_name().unwrap().to_string_lossy();
+
+                        let replace_vars = |txt: &'_ str| {
+                            txt.replace("{filename}", &filename)
+                                .replace("{filename:short}", &filename_short)
+                                .replace("{x}", &rule.x)
+                        };
+                        
+                        let msg = replace_vars(&rule.msg);
+                        let args = rule.args.iter().map(|arg| replace_vars(arg)).collect::<Vec<String>>();
+                        
+                        println!("msg => {}", msg);
+                        for arg in &args {
+                            println!("  arg => {}", arg);
+                        }
+
+                        // TODO: unwrap() may be difficult here, because the user's template might fail
+                        notify(&msg);
                         
                         let _child =
-                            Command::new("lpr")
-                            .args([format!("-P{}", config.printer),
-                                   format!("{}", pathbuf.to_string_lossy())])
+                            Command::new(&rule.cmd)
+                            .args(args)
                             .spawn()
                             .expect("failed to execute process");
                     }
@@ -86,11 +117,11 @@ fn main() {
                 filename=CONFIG_FILE));
     
     let config: Config = toml::from_str(&config_string).unwrap();
-
-    notify(&format!("Watching path {path} for incoming documents (pdf only)",
-                    path=config.path));
-        
-    if let Err(e) = watch(&config) {
-        error!("error: {:?}", e);
+    println!("config: {:#?}", config);
+    
+    if let Some(rule) = config.rules.unwrap().iter().next() {
+        if let Err(e) = watch(&rule) {
+            error!("error: {:?}", e);
+        }
     }
 }

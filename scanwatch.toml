@@ -1,4 +1,17 @@
 # test configuration for scanwatch
-path = "/home/example/scanwatch"
-printer = "kyo_einseitig"
 
+#filter = "*.pdf"
+
+[[rules]]
+path = "./test"
+cmd = "xpdf"
+args = ["{filename}"]
+msg = "opening '{filename}' with xpdf"
+x = ""
+
+[[rules]]
+path = "./test"
+cmd = "lpr"
+args = ["-P{x}", "{filename}"]
+msg = "sending '{filename}' to printer '{x}'"
+x = "kyo_einseitig"
