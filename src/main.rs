@@ -55,15 +55,44 @@ struct Rule {
     x: String,
 }    
 
+// search for configuration file
+// - in the current directory (precedence)
+// - in the xdg config directory for scanwatch
+// If neither is found, a helpful message will be displayed.
+fn read_config_file() -> std::io::Result<String> {
+
+    let mut cwd = env::current_dir().unwrap();
+    cwd.push(CONFIG_FILE);
+    if cwd.exists() {
+        debug!("Found configuration file {}", cwd.to_string_lossy());
+        let config_string = fs::read_to_string(cwd)?;
+        return Ok(config_string);
+    }
+
+    if let Some(mut config_dir) = dirs::config_dir() {
+        config_dir.push("scanwatch");
+        config_dir.push(CONFIG_FILE);
+        if config_dir.exists() {
+            debug!("Found configuration file {}", config_dir.to_string_lossy());
+            let config_string = fs::read_to_string(config_dir)?;
+            return Ok(config_string);
+        }
+    }
+
+    Err(std::io::Error::new(std::io::ErrorKind::Other, "no configuration file found"))
+}
 
 fn main() {
     env_logger::init();
 
-    let config_string = fs::read_to_string(CONFIG_FILE)
-        .expect(&format!("cannot find configuration file {filename}",
-                filename=CONFIG_FILE));
-    
-    let config: Config = toml::from_str(&config_string).unwrap();
+    let config: Config = match read_config_file() {
+        Ok(config_string) => {
+            toml::from_str(&config_string).unwrap()
+        },
+        Err(err) => {
+            panic!("{}", err.to_string());
+        }
+    };
 
     for (key, _rule) in config.rules.iter() {
         debug!("recognized rule: {}", key);

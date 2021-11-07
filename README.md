@@ -5,17 +5,25 @@
 simple utility to watch a directory and forward any new pdf file
 within to a printing frontend
 
+**LINUX ONLY**
+
 ## workflow
 
-- read printer name and path name from config file
-- watch path for new file creation or file writes using notify/inotify
-- execute the command `lpr -P{printer-name} {document-name}` for every file that matches the above rule
+- look for configuration file 'scanwatch.toml', either from the current directory or from the XDG home configuration directory (usually `~/.config/scanwatch/scanwatch.toml`)
+- read action rules from config file
+- watch path for new file creation using inotify
+- display message using desktop notification
+- execute the command that is given by the matching rule, e.g. `lpr -P{printer-name} {document-name}` for every file that matches the above rule
+
+## example configurations
+
+TODO
 
 ## disclaimer
 
-Of course, it would have been easier to write this using a shell
-script. But rust is so great, I wanted to play with it and maybe I
-will enhance this a little more later on...
+Of course, it would have been **much** easier to write this using a
+shell script. But rust is so great, I wanted to play with it and maybe
+I will enhance this a little more later on...
 
 ## status
 
@@ -33,3 +41,6 @@ share that is located on the computer that is running
 `scanwatch`. Since it is a local directory, scanwatch is able to watch
 the share's directory and can execute the lpr command for every newly
 created or overwritten file.
+
+**[07.11.2021]**: Changed from notify to inotify, allow configuration
+file in XDG configuration directory, allow multiple rules
