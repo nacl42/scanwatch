@@ -22,6 +22,7 @@ use notify_rust::Notification;
 use std::{env, fs};
 use std::process::Command;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 
 const CONFIG_FILE: &'static str = "scanwatch.toml";
@@ -109,6 +110,11 @@ fn watch_all(rules: &RuleMap) {
     // that is returned by the Event.
     let mut wdmap: HashMap<WatchDescriptor, String> = HashMap::new();
 
+    // The event_mask_map is used to store the last retrieved event
+    // mask for a given file. It is needed to react on
+    // events that always come in pairs, such as CREATE/CLOSE_WRITE.
+    let mut event_mask_map: HashMap<PathBuf, EventMask> = HashMap::new();
+    
     // For now, we only watch CREATE events. If we were watching
     // others, we would need to make sure, that we do not trigger
     // events twice, e.g. a file creation will trigger both CREATE and
@@ -141,53 +147,59 @@ fn watch_all(rules: &RuleMap) {
                 let msg = format!("triggered rule '{}'", key);
                 let filename_short = event.name.unwrap().to_string_lossy();
                 let is_pdf = filename_short.ends_with(".pdf");
-                let is_file = !event.mask.contains(EventMask::ISDIR);
-                let matches_event = event.mask.contains(EventMask::CREATE);
                 let rule = rules.get(key).unwrap();
 
                 // this tries to determine the absolute file name
                 // it is definitely a mess, and I might be better off using
                 // a crate such as path-absolutize. But for now, I will try
                 // to stick with this simple implementation.
-                let mut filename = env::current_dir().unwrap();
-                filename.push(rule.path.clone());
-                filename.push(event.name.unwrap());
-                let filename = filename.to_str().unwrap();
+                let mut file_pathbuf = env::current_dir().unwrap();
+                file_pathbuf.push(rule.path.clone());
+                file_pathbuf.push(event.name.unwrap());
+                let filename = file_pathbuf.to_str().unwrap();
                 
                 debug!("triggered event for rule {}", key);
                 debug!("msg = {}", msg);
                 debug!("filename = {}", filename);
                 debug!("is_pdf = {}", is_pdf);
-                debug!("is_file = {}", is_file);
                 debug!("root path = {}", rule.path);
+
+                if let Some(last_event_mask) = event_mask_map.get(&<>file_pathbuf) {
+                    // only trigger on_close action if we have an event
+                    // queue, i.e. first CREATE, then CLOSE_WRITE
+                    if last_event_mask.contains(EventMask::CREATE) &&
+                        event.mask.contains(EventMask::CLOSE_WRITE) &&
+                        !event.mask.contains(EventMask::ISDIR) {
+                            // TODO: filter for extension, e.g. .pdf
+                            info!("triggered rule {}. File: {}", key, filename);
+
+                            let replace_vars = |txt: &'_ str| {
+                                txt.replace("{filename}", &filename)
+                                    .replace("{filename:short}", &filename_short)
+                                    .replace("{x}", &rule.x)
+                            };
+                        
+                            let msg = replace_vars(&rule.msg);
+                            let args = rule.args.iter().map(|arg| replace_vars(arg)).collect::<Vec<String>>();
+
+                            debug!("msg = {}", msg);
+                            for arg in &args {
+                                debug!("arg = {}", arg);
+                            }
+
+                            // TODO: unwrap() may be difficult here, because
+                            // the user's template might fail
+                            display_notification(&msg);
+                            
+                            let _child =
+                                Command::new(&rule.cmd)
+                                .args(args)
+                                .spawn()
+                                .expect("failed to execute process");
+                        }
+                } 
                 
-                if matches_event && is_file && is_pdf {
-                    info!("triggered rule {}. File: {}", key, filename);
-
-                    let replace_vars = |txt: &'_ str| {
-                        txt.replace("{filename}", &filename)
-                            .replace("{filename:short}", &filename_short)
-                            .replace("{x}", &rule.x)
-                    };
-                        
-                    let msg = replace_vars(&rule.msg);
-                    let args = rule.args.iter().map(|arg| replace_vars(arg)).collect::<Vec<String>>();
-
-                    debug!("msg = {}", msg);
-                    for arg in &args {
-                        debug!("arg = {}", arg);
-                    }
-
-                    // TODO: unwrap() may be difficult here, because
-                    // the user's template might fail
-                    display_notification(&msg);
-                        
-                    let _child =
-                        Command::new(&rule.cmd)
-                        .args(args)
-                        .spawn()
-                        .expect("failed to execute process");
-                }
+                event_mask_map.insert(file_pathbuf, event.mask);
             }
         }
     }
