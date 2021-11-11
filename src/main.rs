@@ -27,6 +27,7 @@ use std::process::Command;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+
 const CONFIG_FILE: &'static str = "scanwatch.toml";
 
 fn display_notification(message: &'_ str) {
@@ -58,6 +59,8 @@ struct Rule {
     args: Vec<String>,
     cmd: String,
     msg: String,
+    starts_with: Option<String>,
+    ends_with: Option<String>,
     #[serde(default)] x: String,
     #[serde(default)] y: String,
     #[serde(default)] z: String
@@ -121,7 +124,8 @@ fn watch_all(config: &Config) -> notify::Result<()> {
             Ok(event) => {
                 println!("received event: {:?}", event);
                 match event {
-                    DebouncedEvent::Create(pb) | DebouncedEvent::Write(pb) => config.rules.iter().for_each(|(_key, rule)| exec_rule(&rule, pb.clone())),
+                    DebouncedEvent::Create(pb) | DebouncedEvent::Write(pb) =>
+                        config.rules.iter().for_each(|(_key, rule)| exec_rule(&rule, pb.clone())),
                     _ => debug!("unhandled event: {:?}", event),
                 }
             },
@@ -131,8 +135,25 @@ fn watch_all(config: &Config) -> notify::Result<()> {
 }
 
 fn exec_rule(rule: &Rule, matched_path: PathBuf) {
+
     let filename = matched_path.to_string_lossy();
+
+    // filename_short is the stripped version without the base path
     let filename_short = matched_path.file_name().unwrap().to_string_lossy();
+
+    if let Some(ends_with) = &rule.ends_with {
+        if !filename_short.ends_with(ends_with) {
+            debug!("filename does not end with '{}'", ends_with);
+            return;
+        }
+    }
+
+    if let Some(starts_with) = &rule.starts_with {
+        if !filename_short.starts_with(starts_with) {
+            debug!("filename '{}' does not start with '{}'", filename_short, starts_with);
+            return;
+        }
+    }
     
     let replace_vars = |txt: &'_ str| {
         txt.replace("{filename}", &filename)
