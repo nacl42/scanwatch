@@ -3,17 +3,15 @@
 
 #filter = "*.pdf"
 
-[rules.xpdf]
 path = "test"
+
+[rules.xpdf]
 cmd = "xpdf"
 args = ["{filename}"]
 msg = "opening '{filename:short}' with xpdf"
-x = ""
 
 [rules.lpr]
-path = "test-lpr"
 cmd = "echo"
 #cmd = "lpr"  # disabled, so that during testing we do not print all the time
-args = ["-P{x}", "{filename}"]
-msg = "sending '{filename}' to printer '{x}'"
-x = "kyo_einseitig"
+args = ["-Pkyo_einseitig", "{filename}"]
+msg = "sending '{filename}' to printer 'kyo_einseitig'"
