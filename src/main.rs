@@ -27,7 +27,6 @@ use std::process::Command;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-
 const CONFIG_FILE: &'static str = "scanwatch.toml";
 
 fn display_notification(message: &'_ str) {
@@ -43,30 +42,8 @@ fn display_notification(message: &'_ str) {
         .unwrap();
 }
 
-#[derive(Debug)]
-enum ScanwatchError {
-    IoError(std::io::Error),
-    TomlError(toml::de::Error),
-    Custom(String)
-}
-
-impl From<std::io::Error> for ScanwatchError {
-    fn from(err: std::io::Error) -> Self {
-        ScanwatchError::IoError(err)
-    }
-}
-
-impl From<toml::de::Error> for ScanwatchError {
-    fn from(err: toml::de::Error) -> Self {
-        ScanwatchError::TomlError(err)
-    }
-}
-
-impl From<String> for ScanwatchError {
-    fn from(err: String) -> Self {
-        ScanwatchError::Custom(err)
-    }
-}
+// very simple error type: just an error message
+type SwResult<T> = Result<T, String>;
 
 type RuleMap = HashMap<String, Rule>;
 
@@ -95,15 +72,17 @@ fn main() {
 // - in the current directory (precedence)
 // - in the xdg config directory for scanwatch
 // If neither is found, a helpful message will be displayed.
-fn read_config() -> Result<Config, ScanwatchError> {
+fn read_config() -> SwResult<Config> {
 
     let mut cwd = env::current_dir().unwrap();
     cwd.push(CONFIG_FILE);
 
     if cwd.exists() {
         debug!("Found configuration file {}", cwd.to_string_lossy());
-        let config_string = fs::read_to_string(cwd)?;
-        return toml::from_str(&config_string)?;
+        let config_string = fs::read_to_string(cwd)
+            .map_err(|err| "io error".to_string())?;
+        return toml::from_str(&config_string)
+            .map_err(|err| "toml error".to_string());
     }
 
     if let Some(mut config_dir) = dirs::config_dir() {
@@ -111,12 +90,14 @@ fn read_config() -> Result<Config, ScanwatchError> {
         config_dir.push(CONFIG_FILE);
         if config_dir.exists() {
             debug!("Found configuration file {}", config_dir.to_string_lossy());
-            let config_string = fs::read_to_string(config_dir)?;
-            return toml::from_str(&config_string);
+            let config_string = fs::read_to_string(config_dir)
+                .map_err(|err| "io error".to_string())?;
+            return toml::from_str(&config_string)
+                .map_err(|err| "toml error".to_string());
         }
     }
 
-    Err(ScanwatchError::Custom(String::from("no configuration file found")))
+    Err(String::from("no configuration file found"))
 }
 
 
