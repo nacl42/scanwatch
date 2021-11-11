@@ -58,7 +58,9 @@ struct Rule {
     args: Vec<String>,
     cmd: String,
     msg: String,
-    #[serde(default)] x: String
+    #[serde(default)] x: String,
+    #[serde(default)] y: String,
+    #[serde(default)] z: String
 }    
 
 fn main() {
@@ -136,6 +138,8 @@ fn exec_rule(rule: &Rule, matched_path: PathBuf) {
         txt.replace("{filename}", &filename)
             .replace("{filename:short}", &filename_short)
             .replace("{x}", &rule.x)
+            .replace("{y}", &rule.y)
+            .replace("{z}", &rule.z)
     };
                         
     let msg = replace_vars(&rule.msg);
