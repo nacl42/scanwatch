@@ -4,6 +4,16 @@
 // if you want to see debug output during testing, run via
 // RUST_LOG=debug cargo run
 
+// TODO:
+// - get rid of warning messages
+// - document functions
+// - document configuration in README.md
+// - maybe have an option to quit rule evaluation if a rule
+// matches. This would require the rules to be run in the order they
+// appear.
+// - make sound when rule is triggered
+// - count pages of pdf and match rule only if given number of pages
+// is higher or lower than given value.
 
 use log::{debug, info};
 use serde_derive::{Deserialize, Serialize};

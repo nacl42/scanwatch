@@ -1,20 +1,20 @@
 # sample configuration file for `scanwatch`
 # for details on the .toml file format, see https://toml.io/
 
-# global path to be watched. Only one path per instance.
-path = "~/scanwatch"
+path ="~/scanwatch"
 
 [rules.xpdf]
-ends_with = ".pdf" # match any pdf file
+filter = "\\.pdf$"
+icon = "application-pdf"
 cmd = "xpdf"
 args = ["{filename}"]
 msg = "opening '{filename:short}' with xpdf"
 
 [rules.lpr]
-ends_with = ".pdf"
-starts_with = "CN" # prefix given by scanner software
+filter = "^CN.*\\.pdf$"
+icon = "printer"
 cmd = "echo"
 #cmd = "lpr"  # disabled, so that during testing we do not print all the time
 args = ["-P{x}", "{filename}"]
-msg = "sending '{filename}' to printer '{x}'"
+msg = "sending '{filename:short}' to printer '{x}'"
 x = "kyo_einseitig"
