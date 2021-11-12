@@ -2,7 +2,7 @@
 # for details on the .toml file format, see https://toml.io/
 
 # global path to be watched. Only one path per instance.
-path = "test"
+path = "~/scanwatch"
 
 [rules.xpdf]
 ends_with = ".pdf" # match any pdf file

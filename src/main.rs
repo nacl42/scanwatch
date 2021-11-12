@@ -2,7 +2,8 @@
 ///! or overwritten files and sends the file to a printer
 
 // TODO:
-// - expand `path` variables, i.e. ~
+// - expand `path` variables, i.e. ~  (using dirs::home_dir())
+// - rewrite starts_with and ends_with to a proper regex filter
 
 // if you want to see debug output during testing, run via
 // RUST_LOG=debug cargo run
@@ -21,6 +22,7 @@ use std::{env, fs};
 use std::process::Command;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::ffi::OsString;
 
 
 const CONFIG_FILE: &'static str = "scanwatch.toml";
@@ -28,6 +30,7 @@ const CONFIG_FILE: &'static str = "scanwatch.toml";
 fn display_notification(message: &'_ str, icon: &Option<String>) {
     // if below notification fails, then this is not at all fatal, as
     // we print out the message on the command line
+    debug!("{}", message);
     println!("»»» {}", message);
     let title = "scanwatch";
     
@@ -109,11 +112,14 @@ fn watch_all(config: &Config) -> notify::Result<()> {
 
     // construct absolute path and start watching
     let mut pb = std::env::current_dir()?;
-    pb.push(config.path.clone());
-    watcher.watch(config.path.clone(), RecursiveMode::Recursive)?;
-    debug!("watching path {}", pb.to_string_lossy());
+    pb.push(expand_tilde(&config.path));
+    watcher.watch(pb.as_path().clone(), RecursiveMode::Recursive)
+        .expect(&format!("failed to watch path '{}', maybe it does not exist...?", pb.to_string_lossy()));
 
-    display_notification("Happy Watch!", &None);
+    display_notification(
+        &format!("watching path '{}'", pb.to_string_lossy()),
+        &None
+    );
 
     loop {
         match rx.recv() {
@@ -177,3 +183,19 @@ fn exec_rule(rule: &Rule, matched_path: PathBuf) {
         .spawn()
         .expect("failed to execute process");
 }
+
+
+
+fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
+    let home_dir = dirs::home_dir().unwrap().into_os_string();
+
+    let mut result = PathBuf::new();
+    path.as_ref()
+        .components()
+        .map(|c| c.as_os_str())
+        .map(|c| if c == "~" { home_dir.clone() } else { OsString::from(c) })
+        .for_each(|oss| result.push(oss));
+
+    result
+}
+
