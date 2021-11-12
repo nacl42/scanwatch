@@ -2,12 +2,7 @@
 ///! or overwritten files and sends the file to a printer
 
 // TODO:
-// - read configuration from xdg-compatible directory
-// - handle more than create events, which is tricky, because we need
-//   to keep track of the former events and decide what to do
-// - how often does inotify poll? Is there any way to change poll time?
-//   Is there any _need_ to do it?
-
+// - expand `path` variables, i.e. ~
 
 // if you want to see debug output during testing, run via
 // RUST_LOG=debug cargo run
@@ -30,17 +25,17 @@ use std::path::{Path, PathBuf};
 
 const CONFIG_FILE: &'static str = "scanwatch.toml";
 
-fn display_notification(message: &'_ str) {
+fn display_notification(message: &'_ str, icon: &Option<String>) {
     // if below notification fails, then this is not at all fatal, as
     // we print out the message on the command line
     println!("»»» {}", message);
-
-    Notification::new()
-        .summary("scanwatch")
-        .body(message)
-        .icon("printer")
-        .show()
-        .unwrap();
+    let title = "scanwatch";
+    
+    if let Some(icon) = icon {
+        Notification::new().summary(title).body(message).icon(&icon).show().unwrap();
+    } else {
+        Notification::new().summary(title).body(message).show().unwrap();
+    }
 }
 
 // very simple error type: just an error message
@@ -61,6 +56,7 @@ struct Rule {
     msg: String,
     starts_with: Option<String>,
     ends_with: Option<String>,
+    icon: Option<String>,
     #[serde(default)] x: String,
     #[serde(default)] y: String,
     #[serde(default)] z: String
@@ -117,7 +113,7 @@ fn watch_all(config: &Config) -> notify::Result<()> {
     watcher.watch(config.path.clone(), RecursiveMode::Recursive)?;
     debug!("watching path {}", pb.to_string_lossy());
 
-    display_notification("Happy Watch!");
+    display_notification("Happy Watch!", &None);
 
     loop {
         match rx.recv() {
@@ -173,7 +169,7 @@ fn exec_rule(rule: &Rule, matched_path: PathBuf) {
 
     // TODO: unwrap() may be difficult here, because
     // the user's template might fail
-    display_notification(&msg);
+    display_notification(&msg, &rule.icon);
                             
     let _child =
         Command::new(&rule.cmd)
