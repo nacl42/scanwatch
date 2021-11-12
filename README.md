@@ -5,6 +5,9 @@
 simple utility to watch a directory and forward any new pdf file
 within to a printing frontend
 
+This software is developed for my own personal use. However, if you
+have suggestions, feel free to ask me.
+
 **LINUX ONLY**
 
 ## workflow
@@ -17,14 +20,17 @@ within to a printing frontend
 
 ## example configurations
 
+    path = "~/scanwatch"
+    
     [rules.xpdf]
-    path = "test"
+    filter = "\\.pdf$"
     cmd = "xpdf"
     args = ["{filename}"]
     msg = "opening '{filename:short}' with xpdf"
     x = ""
 
     [rules.lpr]
+    filter = "^CN.*\\.pdf$"
     path = "test-lpr"
     cmd = "lpr"
     args = ["-P{x}", "{filename}"]
@@ -56,3 +62,7 @@ created or overwritten file.
 
 **[07.11.2021]**: Changed from notify to inotify, allow configuration
 file in XDG configuration directory, allow multiple rules
+
+**[12.11.2021]**: configuration file has been completely reworked:
+only single watch path (global),for every rule we can have a filter
+expression (rust syntax) and a certain symbol
