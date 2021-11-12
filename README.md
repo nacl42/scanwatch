@@ -12,7 +12,10 @@ have suggestions, feel free to ask me.
 
 ## workflow
 
-- look for configuration file 'scanwatch.toml', either from the current directory or from the XDG home configuration directory (usually `~/.config/scanwatch/scanwatch.toml`)
+- look for configuration file 'scanwatch.toml', either from the
+  current directory or from the XDG home configuration directory
+  (usually `~/.config/scanwatch/scanwatch.toml`)
+- read global watch path from config file
 - read action rules from config file
 - watch path for new file creation using inotify
 - display message using desktop notification
@@ -31,7 +34,6 @@ have suggestions, feel free to ask me.
 
     [rules.lpr]
     filter = "^CN.*\\.pdf$"
-    path = "test-lpr"
     cmd = "lpr"
     args = ["-P{x}", "{filename}"]
     msg = "sending '{filename}' to printer '{x}'"
