@@ -8,10 +8,10 @@ edition = "2021"
 [dependencies]
 notify = "4.0" # to watch file creation
 notify-rust = "4" # to display desktop notifications
-serde = "1.0"
-serde_derive = "1.0"
-toml = "0.5"
-log = "0.4"
+serde = "1.0" # for serialization of toml files
+serde_derive = "1.0" # for serialization of toml files
+toml = "0.5" # for reading the configuration file
+log = "0.4" # for logging, obviously
 env_logger = "0.9"
-dirs = "4.0"
+dirs = "4.0" # for accessing the xdg config file dir and the user home dir
 regex = "1.0"

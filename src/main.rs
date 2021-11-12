@@ -1,10 +1,6 @@
 ///! Very simple app that watches a directory for newly created
 ///! or overwritten files and sends the file to a printer
 
-// TODO:
-// - expand `path` variables, i.e. ~  (using dirs::home_dir())
-// - rewrite starts_with and ends_with to a proper regex filter
-
 // if you want to see debug output during testing, run via
 // RUST_LOG=debug cargo run
 
@@ -57,9 +53,8 @@ struct Rule {
     args: Vec<String>,
     cmd: String,
     msg: String,
-    starts_with: Option<String>,
-    ends_with: Option<String>,
     icon: Option<String>,
+    filter: Option<String>,
     #[serde(default)] x: String,
     #[serde(default)] y: String,
     #[serde(default)] z: String
@@ -143,19 +138,19 @@ fn exec_rule(rule: &Rule, matched_path: PathBuf) {
     // filename_short is the stripped version without the base path
     let filename_short = matched_path.file_name().unwrap().to_string_lossy();
 
-    if let Some(ends_with) = &rule.ends_with {
-        if !filename_short.ends_with(ends_with) {
-            debug!("filename does not end with '{}'", ends_with);
-            return;
-        }
-    }
-
-    if let Some(starts_with) = &rule.starts_with {
-        if !filename_short.starts_with(starts_with) {
-            debug!("filename '{}' does not start with '{}'", filename_short, starts_with);
-            return;
-        }
-    }
+    // if a filter exists, the short filename must match
+    if let Some(filter) = &rule.filter {
+        debug!("matching {} against filter {}", filename_short, filter);
+        if let Ok(re) = regex::Regex::new(&filter) {
+            debug!("successfully compiled regular expression");
+            if re.is_match(&filename_short) {
+                debug!("filter matches");
+            } else {
+                debug!("not a match at all, skipping rule!");
+                return;
+            }
+        };
+    };
     
     let replace_vars = |txt: &'_ str| {
         txt.replace("{filename}", &filename)
