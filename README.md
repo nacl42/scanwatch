@@ -3,12 +3,17 @@
 ## summary
 
 simple utility to watch a directory and forward any new pdf file
-within to a printing frontend
+within to a printing frontend (**linux only!**)
 
 This software is developed for my own personal use. However, if you
-have suggestions, feel free to ask me.
+have suggestions, feel free to contact me.
 
-**LINUX ONLY**
+## use cases
+
+- watch scanner directory for new files and forward the file to the printer
+- watch scanner directory for new files and open them
+- watch download directory for new files with a certain name and move
+  them to a certain folder
 
 ## workflow
 
@@ -18,8 +23,11 @@ have suggestions, feel free to ask me.
 - read global watch path from config file
 - read action rules from config file
 - watch path for new file creation using inotify
+- upon new file creation or existing file write:
 - display message using desktop notification
-- execute the command that is given by the matching rule, e.g. `lpr -P{printer-name} {document-name}` for every file that matches the above rule
+- execute the command that is given by the matching rule, e.g. `lpr
+  -P{printer-name} {document-name}` for every file that matches the
+  above rule
 
 ## example configurations
 
@@ -39,32 +47,51 @@ have suggestions, feel free to ask me.
     msg = "sending '{filename}' to printer '{x}'"
     x = "kyo_einseitig"
 
+Valid variables:
+
+| scope  | variable | meaning |
+| ------ | -------- | ------- |
+| global | path     | path to watch (including subdirectories) | 
+| rule   | filter   | filter expression (rust regular expression) |
+| rule   | cmd      | command to execute if watched file matches rule |
+| rule   | args     | arguments to pass to the given command |
+| rule   | x, y, z  | optional variables that can be used in the args variable |
+| rule   | msg      | message to display in the notification |
+
+Args and msg can contain the following placeholder variables:
+
+| placeholder | expansion to |
+| ----------- | ------------ |
+| {filename[    | matched filename (complete path) |
+| {filename:short} | matched filename (without watched path prefix) |
+| {x}, {y}, {z}  | rule variable 'x', 'y' or 'z' |
+
+
 ## disclaimer
 
 Of course, it would have been **much** easier to write this using a
 shell script. But rust is so great, I wanted to play with it and maybe
 I will enhance this a little more later on...
 
-## status
+## features
+- execute multiple actions when a new file is created
+- path can include '~' for user home directory
+- display notification upon action (with custom icon)
 
-**[05.11.2021]**: The given directory is being watched and if a new file is created, a command can be executed. UNFORTUNATELY, the old printer frontend gtklp is no longer properly maintained, at least it does not work on my
-ArchLinux system. Therefore this is still not functional.
+## limitations
 
-**[06.11.2021]**: There is a certain flaw with this approach: notify
-(or inotify) under Linux does not watch any notification changes from
-files on smb network shares. This was initially my use case. Since
-there seems to be no way around (other than manually polling the
-directory's content all the time), I changed the use case a little:
+- Linux only
+- It is not possible to watch SMB mounted paths (i.e. Windows Shares),
+  because the underlying linux notification library (inotify) does not
+  support it.
+- Only one path (and its subdirectories) can be watched. Originally I
+  had intended to specify the path for each rule, but the current
+  implementation was much easier.
+  
+## future plans
 
-Scanner scans file, converts it to pdf and stores it on a network
-share that is located on the computer that is running
-`scanwatch`. Since it is a local directory, scanwatch is able to watch
-the share's directory and can execute the lpr command for every newly
-created or overwritten file.
+- app logo
+- optional audio bell
+- add command line options (help, verbose, location of config file)
+- simplify filter mechanism
 
-**[07.11.2021]**: Changed from notify to inotify, allow configuration
-file in XDG configuration directory, allow multiple rules
-
-**[12.11.2021]**: configuration file has been completely reworked:
-only single watch path (global),for every rule we can have a filter
-expression (rust syntax) and a certain symbol
