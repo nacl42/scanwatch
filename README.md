@@ -36,33 +36,37 @@ have suggestions, feel free to contact me.
 
 Example configuration file:
 
-    # scanwatch.toml
-    path = "~/scanwatch"
-    
-    [rules.xpdf]
-    filter = "\\.pdf$"
-    cmd = "xpdf"
+    path ="~/scanwatch"
+
+    [rules.pdf]
+    ends_with = ".pdf"
+    cmd = "xdg-open"
     args = ["{filename}"]
-    msg = "opening '{filename:short}' with xpdf"
-    x = ""
+    icon = "application-pdf"
+    msg = "opening '{filename:short}' with default viewer"
 
     [rules.lpr]
-    filter = "^CN.*\\.pdf$" # scanner files on my printer are named CNxxxx.pdf
+    starts_with = "CN"
+    ends_with = ".pdf"
+    x = "kyo_einseitig"
     cmd = "lpr"
     args = ["-P{x}", "{filename}"]
-    msg = "sending '{filename}' to printer '{x}'"
-    x = "kyo_einseitig"  # this is the printer name
+    msg = "sending '{filename:short}' to printer '{x}'"
+    icon = "printer"
 
 Valid variables:
 
-| scope  | variable | meaning |
-| ------ | -------- | ------- |
-| global | path     | path to watch (including subdirectories) | 
-| rule   | filter   | filter expression (rust regular expression) |
-| rule   | cmd      | command to execute if watched file matches rule |
-| rule   | args     | arguments to pass to the given command |
-| rule   | x, y, z  | optional variables that can be used in the args variable |
-| rule   | msg      | message to display in the notification |
+| scope  | mandatory/optional | variable | meaning | examples |
+| ------ | ------------------ | -------- | ------- | ------- |
+| global | mandatory          | path     | path to watch (including subdirectories) | "~/scanwatch", "scanwatch", "/home/foo//scanwatch" |
+| rules  | mandatory          | cmd      | command to execute if watched file matches rule | "xdg-open", "lpr" |
+| rules  | mandatory          | args     | list of arguments to pass to the given command | ["-P{x}"], ["--verbose"] |
+| rules  | mandatory          | msg      | message to display in the notification | "sending {filename} to default viewer" |
+| rules  | optional           | starts_with | beginning of file name (without watched path) | "CN_" |
+| rules  | optional           | ends_with | end of file name (without watched path) | ".pdf", ".zip" |
+| rules  | optional           | filter   | filter expression (rust regular expression) | "\\\\.pdf$", "^CN.*" |
+| rules  | optional           | x, y, z  | optional variables that can be used in the args variable | "anything" |
+| rules  | optional           | icon     | name of icon to display | "application-pdf", "printer" |
 
 Args and msg can contain the following placeholder variables:
 
@@ -92,7 +96,6 @@ Args and msg can contain the following placeholder variables:
 - add fancy app logo
 - optional audio bell
 - add command line options (help, verbose, location of config file)
-- simplify filter mechanism
 
 ## disclaimer
 

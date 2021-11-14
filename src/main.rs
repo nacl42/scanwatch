@@ -28,7 +28,7 @@ use std::{env, fs};
 use std::process::Command;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 
 
 const CONFIG_FILE: &'static str = "scanwatch.toml";
@@ -64,6 +64,8 @@ struct Rule {
     cmd: String,
     msg: String,
     icon: Option<String>,
+    ends_with: Option<String>,
+    starts_with: Option<String>,
     filter: Option<String>,
     #[serde(default)] x: String,
     #[serde(default)] y: String,
@@ -148,6 +150,22 @@ fn exec_rule(rule: &Rule, matched_path: PathBuf) {
     // filename_short is the stripped version without the base path
     let filename_short = matched_path.file_name().unwrap().to_string_lossy();
 
+    // if 'ends_with' or 'starts_with' are given, then the corresponding
+    // parts of the short filename must match
+    if let Some(ends_with) = &rule.ends_with {
+        if !filename_short.ends_with(ends_with) {
+            debug!("filename does not end with '{}', skipping rule", ends_with);
+            return;
+        }
+    }
+
+    if let Some(starts_with) = &rule.starts_with {
+        if !filename_short.starts_with(starts_with) {
+            debug!("filename '{}' does not start with '{}', skipping rule", filename_short, starts_with);
+            return;
+        }
+    }
+    
     // if a filter exists, the short filename must match
     if let Some(filter) = &rule.filter {
         debug!("matching {} against filter {}", filename_short, filter);

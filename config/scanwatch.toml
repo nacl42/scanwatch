@@ -1,20 +1,26 @@
 # sample configuration file for `scanwatch`
-# for details on the .toml file format, see https://toml.io/
+
+# for details on the allowed parameters, see 'https://github.com/nacl42/scanwatch'
+# for details on the .toml file format in general, see 'https://toml.io/'
+# for details on the 'filter' syntax, see 'https://docs.rs/regex/1.5.4/regex/#syntax'
 
 path ="~/scanwatch"
 
-[rules.xpdf]
-filter = "\\.pdf$"
-icon = "application-pdf"
-cmd = "xpdf"
+[rules.pdf]
+ends_with = ".pdf"
+#filter = "\\.pdf$"
+cmd = "xdg-open"
 args = ["{filename}"]
-msg = "opening '{filename:short}' with xpdf"
+icon = "application-pdf"
+msg = "opening '{filename:short}' with default viewer"
 
 [rules.lpr]
-filter = "^CN.*\\.pdf$"
-icon = "printer"
+starts_with = "CN"
+ends_with = ".pdf"
+#filter = "^CN.*\\.pdf$"
+x = "kyo_einseitig"
 cmd = "echo"
 #cmd = "lpr"  # disabled, so that during testing we do not print all the time
 args = ["-P{x}", "{filename}"]
 msg = "sending '{filename:short}' to printer '{x}'"
-x = "kyo_einseitig"
+icon = "printer"

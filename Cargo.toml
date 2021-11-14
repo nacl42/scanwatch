@@ -1,9 +1,9 @@
 [package]
 name = "scanwatch"
-version = "0.1.0"
+version = "0.5.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["sreblov <code@sreblov.de>"]
+description = "simple utility to watch a directory for new or modified files and execute specific actions such as forwarding the file to a printer"
 
 [dependencies]
 notify = "4.0" # to watch file creation
